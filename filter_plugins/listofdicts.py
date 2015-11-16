@@ -167,6 +167,7 @@ def merge(stuff, data, attr, filter=False):
           interfaces|merge(int_defs,'label')
 
     ---
+    ## Alternate organization
     vars:
       int_defs:
         - { name: xe-0/1/0, label: uplinks }
@@ -229,6 +230,7 @@ def merge(stuff, data, attr, filter=False):
 
     '''
     retlist = []
+    merged = []
     for s in stuff:
         label = s
         ## If attr is specified, matching label is value of attr field.
@@ -237,6 +239,10 @@ def merge(stuff, data, attr, filter=False):
             if attr in s:
                 label = s[attr]
             else:
+                ## If the attr is not in /s/, then it's not going to match
+                ## anything in data, so either:
+                ## - move on to the next /s/ (if filter)
+                ## - or add /s/ to return val and move on to the next /s/.
                 if filter:
                     continue
                 newd = {}
@@ -248,27 +254,34 @@ def merge(stuff, data, attr, filter=False):
         if 'keys' in dir(data):
             ## if data is a dict, assume that the keys are labels and
             ## the values are lists that need to be merged into stuff. 
-            datalist = data[label]
+            datalist = data.get(label,[])
         else:
             ## If data is a list of dicts, then the labels are attributes 
             ## of the dicts. 
-            datalist = [ d for d in data if d[attr] == label ]
+            datalist = [ d for d in data if d.get(attr,None) == label ]
         if len(datalist) == 0:
             ## if datalist is empty, there is nothing to merge.
-            ## simply append a copy of /s/ to the return value.
-            if filter:
-                ## however, if we are filtering, then we don't want non-matches.
-                continue
-            newd = {}
-            newd.update(s)
-            retlist.append(newd)
+            retlist.append(s)
             continue
         ## Time to merge lists
         ## There might be multiple /d/ matches for each /s/
+        merged.append(s)
         for d in datalist:
             newd = {}
             newd.update(s)
             newd.update(d)
             retlist.append(newd)
+            merged.append(d)
+    if not filter:
+        if 'keys' in dir(data):
+            for k in data.keys():
+                for v in data[k]:
+                    if v not in merged:
+                        v[attr] = k
+                        retlist.append(v)
+        else:
+            for v in data:
+                if v not in merged:
+                    retlist.append(v)
     return retlist
 
