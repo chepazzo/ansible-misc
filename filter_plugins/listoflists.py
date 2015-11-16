@@ -23,7 +23,7 @@ def collapse(stuff):
     '''
     return list(itertools.chain.from_iterable(stuff))
 
-def expand_ranges(stuff):
+def expand_ranges(stuff,field='name'):
     '''
     Expands lists with embedded ranges to a single list
     e.g. 
@@ -40,17 +40,22 @@ def expand_ranges(stuff):
       - name: expand_ranges
         debug: var={{ item.name }}
         with_items:
-          ints|expand_ranges
+          ints|expand_ranges('name')
     '''
     ret = []
     for s in stuff:
-        if s['name'] != 'range':
+        if field not in s:
             ret.append(s)
             continue
+        if s[field] != 'range':
+            ret.append(s)
+            continue
+        prefix = s.get('prefix','')
+        suffix = s.get('suffix','')
         for num in range(*s['range']):
             thing = {}
             thing.update(s)
-            thing['name'] = "%s%s"%(s['prefix'],num)
+            thing[field] = "%s%s%s"%(prefix,num,suffix)
             ret.append(thing)
     return ret
 
