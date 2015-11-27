@@ -119,7 +119,14 @@ def stitch(stuff, data, attr=None):
     if attr is None:
         return [data[s] for s in stuff]
     else:
-        return [data[s[attr]] for s in stuff]
+        ret = []
+        for s in stuff:
+            newd = {}
+            newd.update(data[s[attr]])
+            if attr not in newd.keys():
+                newd[attr] = s[attr]
+            ret.append(newd)
+        #return [data[s[attr]] for s in stuff]
 
 def merge(stuff, data, attr, filter=False):
     '''
