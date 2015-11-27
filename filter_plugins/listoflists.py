@@ -7,9 +7,11 @@ from ansible import errors
 import itertools
 
 class FilterModule(object):
-    ''' Ansible list-of-dicts jinja2 filters '''
+    ''' Class to make filters available to Ansible '''
 
     def filters(self):
+        ''' List of filters to import into Ansible '''
+
         return {
             'collapse': collapse,
             'expand_ranges': expand_ranges,
@@ -18,29 +20,48 @@ class FilterModule(object):
 def collapse(stuff):
     '''
     collapse will take a list of list and return a single list
-    This really should perform the same function as with_flatten,
-    excpet that you can use it in a jinja2 template.
+    This is similar to using with_flattened, except that this module
+    can be used inside of a jinja2 template.
+
+    Args:
+        stuff (list): List of lists that you need to collapse. Usually, this passed via pipe.
+
+    Returns:
+        list: A combined flattened list.
     '''
     return list(itertools.chain.from_iterable(stuff))
 
 def expand_ranges(stuff,field='name'):
     '''
-    Expands lists with embedded ranges to a single list
-    e.g. 
-    ---
-    vars:
-      ints: 
-        - name: range
-          prefix: "ge-0/1/"
-          range: [0,4] 
-        - name: ge-1/0/0
-        - name: ge-2/0/0
+    Expands lists with embedded ranges to a single list.
 
-    tasks:
-      - name: expand_ranges
-        debug: var={{ item.name }}
-        with_items:
-          ints|expand_ranges('name')
+    Args:
+        stuff (list): List of dicts with ranges. Usually, this passed via pipe.
+        field (Optional[str]): Name of field that is expected to have a value of 'range'
+            for items that need to be expanded.
+
+            This is also the field that will be populated with the output of the expanded range.
+
+    Returns:
+        list: Unified list with ranges expanded to multiple items.
+
+    Example:
+        Playbook Example::
+
+            ---
+            vars:
+              ints: 
+                - name: range
+                  prefix: "ge-0/1/"
+                  range: [0,4] 
+                - name: ge-1/0/0
+                - name: ge-2/0/0
+  
+            tasks:
+              - name: expand_ranges
+                debug: var={{ item.name }}
+                with_items:
+                  ints|expand_ranges('name')
     '''
     ret = []
     for s in stuff:

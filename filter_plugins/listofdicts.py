@@ -6,9 +6,10 @@ from __future__ import absolute_import
 from ansible import errors
 
 class FilterModule(object):
-    ''' Ansible list-of-dicts jinja2 filters '''
+    ''' Class to make filters available to Ansible '''
 
     def filters(self):
+        ''' List of filters to import into Ansible '''
         return {
             'pluck': pluck,
             'stitch': stitch,
@@ -19,39 +20,49 @@ def pluck(stuff, attr, val):
     '''
     pluck will take a list of dicts and return a subset of dicts
     where the value of the attr field is val.
-    ****
-        I assume that this is how the 'equalto' test in selectattr() is supposed
-        to work in jinja2 v2.8, 
-            {{ mounts|selectattr("fstype", "equalto", "nfs") }}
-        but I don't have that intalled, so I had to roll my own.
-    ****
-    e.g.
-    ---
-    vars:
-      all_mounts:
-        web:
-          name: /var/www
-          src: nfs:/web
-          fstype: nfs
-        git:
-          name: /opt/git
-          src: nfs:/git
-          fstype: nfs
-        pics:
-          name: /data/pics
-          src: nfs:/pics
-          fstype: nfs
 
-    tasks:
-    - name: mount only NFS shares
-      mount: 
-        name="{{ item.name }}" 
-        src="{{ item.src }}" 
-        fstype="{{ item.fstype }}" 
-        state="mounted" 
-        opts="{{ item.opts }}"
-      with_items:
-        all_mounts|pluck('fstype','nfs')
+        | I assume that this is how the 'equalto' test in selectattr() is supposed
+        | to work in jinja2 v2.8, 
+        |     {{ mounts|selectattr("fstype", "equalto", "nfs") }}
+        | but I don't have that intalled, so I had to roll my own.
+
+    Args:
+        stuff (list): List of dicts to filter. Usually, this passed via pipe.
+        attr (str): Attribute to match against.
+        val (str): Value of attribute that must match to be included in the returned filtered list.
+
+    Returns:
+        list: Subset of dicts matching passed parameters.
+
+    Example:
+        Playbook Example::
+
+            ---
+            vars:
+              all_mounts:
+                web:
+                  name: /var/www
+                  src: nfs:/web
+                  fstype: nfs
+                git:
+                  name: /opt/git
+                  src: nfs:/git
+                  fstype: nfs
+                pics:
+                  name: /data/pics
+                  src: nfs:/pics
+                  fstype: nfs
+
+            tasks:
+            - name: mount only NFS shares
+              mount: 
+                name="{{ item.name }}" 
+                src="{{ item.src }}" 
+                fstype="{{ item.fstype }}" 
+                state="mounted" 
+                opts="{{ item.opts }}"
+              with_items:
+                all_mounts|pluck('fstype','nfs')
 
     '''
     return [s for s in stuff if s.get(attr) == val]
@@ -60,60 +71,73 @@ def stitch(stuff, data, attr=None):
     '''
     Stitch will take a list of labels and map each to a dicts.
     Use the optional attr if the initial list is of dicts.
-    e.g.
-    ---
-    vars:
-      ## e.g. put this in group_vars/all
-      ## define mount points
-      all_mounts:
-        web:
-          name: /var/www
-          src: nfs:/web
-          fstype: nfs
-        git:
-          name: /opt/git
-          src: nfs:/git
-          fstype: nfs
-        pics:
-          name: /data/pics
-          src: nfs:/pics
-          fstype: nfs
 
-      ## e.g. put this in group_vars/webservers
-      ## configure which mounts go on which devices
-      mounts:
-        - web
-        - pics
+    Args:
+        stuff (list): Initial list of stuff. Usually, this passed via pipe.
+        data (dict): Dict containing keys that match items or attributes of stuff.
+        attr (Optional[str]): Key to identify which attr of ``stuff`` to match against keys in data.
 
-    tasks:
-    - name: mount
-      mount: 
-        name="{{ item.name }}" 
-        src="{{ item.src }}" 
-        fstype="{{ item.fstype }}" 
-        state="mounted" 
-        opts="{{ item.opts }}"
-      with_items:
-        mounts|stitch(all_mounts)
+    Returns:
+        list:  A list stitching stuff to matching dicts in data.
 
-    ---
-    vars:
-      mounts:
-        - name: web
-          comment: My web server needs web stuff
-        - name: pics
-          comment: My web server needs pics
+    Examples:
+        Initial list is flat::
 
-    tasks:
-    - name: mount
-      mount: 
-        name="{{ item.name }}" 
-        src="{{ item.src }}" 
-        fstype="{{ item.fstype }}" 
-        state="mounted" 
-        opts="{{ item.opts }}"
-      with_items:
-        mounts|stitch(all_mounts,'name')
+            ---
+            vars:
+              ## e.g. put this in group_vars/all
+              ## define mount points
+              all_mounts:
+                web:
+                  name: /var/www
+                  src: nfs:/web
+                  fstype: nfs
+                git:
+                  name: /opt/git
+                  src: nfs:/git
+                  fstype: nfs
+                pics:
+                  name: /data/pics
+                  src: nfs:/pics
+                  fstype: nfs
+
+              ## e.g. put this in group_vars/webservers
+              ## configure which mounts go on which devices
+              mounts:
+                - web
+                - pics
+
+            tasks:
+            - name: mount
+              mount: 
+                name="{{ item.name }}" 
+                src="{{ item.src }}" 
+                fstype="{{ item.fstype }}" 
+                state="mounted" 
+                opts="{{ item.opts }}"
+              with_items:
+                mounts|stitch(all_mounts)
+
+        Initial list is of dicts::
+
+            ---
+            vars:
+              mounts:
+                - name: web
+                  comment: My web server needs web stuff
+                - name: pics
+                  comment: My web server needs pics
+
+            tasks:
+            - name: mount
+              mount: 
+                name="{{ item.name }}" 
+                src="{{ item.src }}" 
+                fstype="{{ item.fstype }}" 
+                state="mounted" 
+                opts="{{ item.opts }}"
+              with_items:
+                mounts|stitch(all_mounts,'name')
 
     '''
     if attr is None:
@@ -126,7 +150,7 @@ def stitch(stuff, data, attr=None):
             if attr not in newd.keys():
                 newd[attr] = s[attr]
             ret.append(newd)
-        #return [data[s[attr]] for s in stuff]
+        return ret
 
 def merge(stuff, data, attr, filter=False):
     '''
@@ -134,106 +158,127 @@ def merge(stuff, data, attr, filter=False):
     This is quite useful for abstracting vendor/model-specific 
     values from intent.
 
-    ---
-    vars:
-      ## Place this in a generic group_vars
-      ## e.g. group_vars/leaf
-      ## 'interfaces' describes the intent
-      ## "leaf switches need uplinks in ospf area 0 and peerlinks in area 100"
-      interfaces:
-        - label: uplinks
-          ospf:
-            area: 0.0.0.0
-            type: p2p
-          mtu: jumbo
-        - label: peerlinks
-          ospf:
-            area: 0.0.0.100
-            type: p2p
-          mtu: standard
-      ## Place this in a generic group_vars
-      ## e.g. group_vars/leaf-juniper-ex4200
-      ## 'int_defs' defines labels
-      ## "On leaf switches, the uplinks are xe-0/1/0 and xe-0/1/2"
-      int_defs:
-        uplinks:
-          - name: xe-0/1/0
-            speed: 10G
-          - name: xe-0/1/2
-            speed: 10G
-        peerlinks:
-          - name: ge-0/0/0
-            speed: 1G
-          - name: ge-0/0/1
-            speed: 1G
+    Args:
+        stuff (list): Initial list of stuff. Usually, this passed via pipe.
+        data (list): List of dicts to merge.
+        data (dict): Dict to merge with stuff where keys match stuff[attr].
+        attr (str): Attribute used to find matching dicts between the two lists.
+        filter (Optional[bool]): Default is False.
 
-    tasks:
-      - name: configure ospf ints
-        debug: var=item
-        with_items:
-          interfaces|merge(int_defs,'label')
+            If True, only return (merged) dicts with matching attrs. 
+            If False, also include unmerged dicts.
 
-    ---
-    ## Alternate organization
-    vars:
-      int_defs:
-        - { name: xe-0/1/0, label: uplinks }
-        - { name: xe-0/1/2, label: uplinks }
-        - { name: ge-0/0/0, label: peerlinks }
-        - { name: ge-0/0/1, label: peerlinks }
-      interfaces:
-        - label: uplinks
-          ospf:
-            area: 0.0.0.0
-            type: p2p
-        - label: peerlinks
-          ospf:
-            area: 0.0.0.100
-            type: p2p
+    Returns:
+        list: Merged list of dicts.
 
-    tasks:
-      - name: configure ospf ints
-        debug: var=item
-        with_items:
-          interfaces|merge(int_defs,'label')
+    Examples:
 
-    ---
-    vars:
-      ## Place this in a generic group_vars
-      ## e.g. group_vars/leaf
-      interfaces:
-        - label: uplinks
-          ospf:
-            area: 0.0.0.0
-            type: p2p
-        - label: peerlinks
-          ospf:
-            area: 0.0.0.100
-            type: p2p
-      ## Place this in a generic group_vars
-      ## e.g. group_vars/leaf-juniper-ex4200
-      int_defs:
-        uplinks:
-          - name: xe-0/1/0
-          - name: xe-0/1/2
-        peerlinks:
-          - name: ge-0/0/0
-          - name: ge-0/0/1
-      ## Place this in a host_vars
-      ## e.g. host_vars/leaf1-sw.site.net.com
-      int_config:
-        - name: xe-0/1/0
-          ipv4:
-            cidr: 1.1.1.1/24
-        - name: xe-0/1/2
-          ipv4:
-            cidr: 2.2.2.2/24
+        Example where ``data`` is a dict::
 
-    tasks:
-      - name: display merged interfaces
-        debug: var=item
-        with_items:
-          interfaces|merge(int_defs,'label')|merge(int_config,'name')
+            ---
+            vars:
+              ## Place this in a generic group_vars
+              ## e.g. group_vars/leaf
+              ## 'interfaces' describes the intent
+              ## "leaf switches need uplinks in ospf area 0 and peerlinks in area 100"
+              interfaces:
+                - label: uplinks
+                  ospf:
+                    area: 0.0.0.0
+                    type: p2p
+                  mtu: jumbo
+                - label: peerlinks
+                  ospf:
+                    area: 0.0.0.100
+                    type: p2p
+                  mtu: standard
+              ## Place this in a generic group_vars
+              ## e.g. group_vars/leaf-juniper-ex4200
+              ## 'int_defs' defines labels
+              ## "On leaf switches, the uplinks are xe-0/1/0 and xe-0/1/2"
+              int_defs:
+                uplinks:
+                  - name: xe-0/1/0
+                    speed: 10G
+                  - name: xe-0/1/2
+                    speed: 10G
+                peerlinks:
+                  - name: ge-0/0/0
+                    speed: 1G
+                  - name: ge-0/0/1
+                    speed: 1G
+
+            tasks:
+              - name: configure ospf ints
+                debug: var=item
+                with_items:
+                  interfaces|merge(int_defs,'label')
+
+        Example where ``data`` is a list of dicts::
+
+            ---
+            ## Alternate organization
+            vars:
+              int_defs:
+                - { name: xe-0/1/0, label: uplinks }
+                - { name: xe-0/1/2, label: uplinks }
+                - { name: ge-0/0/0, label: peerlinks }
+                - { name: ge-0/0/1, label: peerlinks }
+              interfaces:
+                - label: uplinks
+                  ospf:
+                    area: 0.0.0.0
+                    type: p2p
+                - label: peerlinks
+                  ospf:
+                    area: 0.0.0.100
+                    type: p2p
+
+            tasks:
+              - name: configure ospf ints
+                debug: var=item
+                with_items:
+                  interfaces|merge(int_defs,'label')
+
+        Example of 3-way merge::
+
+            ---
+            vars:
+              ## Place this in a generic group_vars
+              ## e.g. group_vars/leaf
+              interfaces:
+                - label: uplinks
+                  ospf:
+                    area: 0.0.0.0
+                    type: p2p
+                - label: peerlinks
+                  ospf:
+                    area: 0.0.0.100
+                    type: p2p
+              ## Place this in a generic group_vars
+              ## e.g. group_vars/leaf-juniper-ex4200
+              int_defs:
+                uplinks:
+                  - name: xe-0/1/0
+                  - name: xe-0/1/2
+                peerlinks:
+                  - name: ge-0/0/0
+                  - name: ge-0/0/1
+              ## Place this in a host_vars
+              ## e.g. host_vars/leaf1-sw.site.net.com
+              int_config:
+                - name: xe-0/1/0
+                  ipv4:
+                    cidr: 1.1.1.1/24
+                - name: xe-0/1/2
+                  ipv4:
+                    cidr: 2.2.2.2/24
+
+            tasks:
+              - name: display merged interfaces
+                debug: var=item
+                with_items:
+                  interfaces|merge(int_defs,'label')|merge(int_config,'name')
 
     '''
     retlist = []

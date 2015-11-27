@@ -6,9 +6,10 @@ from __future__ import absolute_import
 from ansible import errors
 
 class FilterModule(object):
-    ''' Ansible conversion jinja2 filters '''
+    ''' Class to make filters available to Ansible '''
 
     def filters(self):
+        ''' List of filters to import into Ansible '''
         return {
             'fmtsize': fmtsize,
         }
@@ -17,26 +18,46 @@ def fmtsize(val,targ,case='lower',base=10):
     '''
     fmtsize will take a string representing a size and convert it to or from 
     human-readable format.
-    params: 
-      targ: human => 100g, 10m, 1k, etc
-            raw => 100000000000, 10000000, 1000, etc
-            ## Perpaps one day I can add 'float'
-      case: 'upper' or 'lower'
-      k: is 1k=1000 or 1k=1024
-    e.g.
-    ---
-    vars:
-      interfaces:
-        - name: eth1
-          speed: 1g
-        - name: xe-1/0/0
-          speed: 10g
 
-    tasks:
-    - name: show me interfaces
-      debug: msg="{{ item.name }} is a {{ item.speed|fmtsize('human',case='upper') }} interface which is {{ item.speed|fmtsize('raw')/1000000 }} Mbps"
-      with_items:
-        interfaces
+    Args: 
+        val (str): The value to convert. Usually, this passed via pipe.
+        targ (str): The target style for conversion.
+            
+            Options: [ 'human', 'raw' ] ## 'float' (not yet implemented)
+
+        case (Optional[str]): The case of the human style result to be returned. Defaults to 'lower'.
+            
+            Options: [ 'upper', 'lower' ]
+
+        base (Optional[int]): Specify the numerical base used in calculations. Defaults to 10.
+
+            e.g. if base == 10, 1k = 1000;
+                 if base == 2,  1k = 1024
+
+    Returns:
+      str: (if targ=='human')
+           e.g. 100g, 10m, 1k, etc
+
+    Returns:
+      int: (if targ=='raw')
+           e.g. 100000000000, 10000000, 1000, etc
+
+    Example:
+      Playbook Example::
+
+          ---
+           vars:
+            interfaces:
+              - name: ge-0/0/0
+                speed: 1g
+              - name: xe-1/0/0
+                speed: 10g
+          
+          tasks:
+          - name: show me interfaces
+            debug: msg="{{ item.name }} is a {{ item.speed|fmtsize('human',case='upper') }} interface which is {{ item.speed|fmtsize('raw')/1000000 }} Mbps"
+            with_items:
+              interfaces
     '''
     # I would prefer to use the correct capitalization, but 
     # dict lookups become much harder when the input might
@@ -92,4 +113,3 @@ def fmtsize(val,targ,case='lower',base=10):
         return True
     if targ =='human': return _to_human(val)
     if targ =='raw': return _to_raw(val)
-
