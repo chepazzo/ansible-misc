@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 
 from ansible import errors
+import re
 
 class FilterModule(object):
     ''' Class to make filters available to Ansible '''
@@ -67,16 +68,21 @@ def fmtsize(val,targ,case='lower',base=10):
     ## e.g. for K (1), base2 = pow(2,1*10) = 1024;    base10 = pow(10,1*3) = 1000
     ##      for M (2), base2 = pow(2,2*10) = 1048576; base10 = pow(10,2*3) = 1000000
     ## etc
+    base = int(base)
     pow_mult = { 2: 10, 10: 3 }
     kfactor = pow(base,pow_mult[base])
     def _to_human(num):
         if _is_valid_human(num):
-            return num
+            ## Cast to string
+            num = str(num)
+            ## Force requested case.
+            if case == 'lower': return num.lower()
+            return num.upper()
         if type(num) is str:
             if not num.isdigit():
                 return None
             num = int(num)
-        if type(num) is not int:
+        if type(num) not in [ int, long ]:
             return None
         for x in valid_suffixes:
             if num < kfactor:
@@ -98,7 +104,9 @@ def fmtsize(val,targ,case='lower',base=10):
         raw = n*pow(base,power)
         return raw
     def _is_valid_human(text):
-        if type(text) is int:
+        if str(text).isdigit():
+            text = int(text)
+        if type(text) in [ int, long ]:
             n = text
             s = None
         else:
@@ -107,8 +115,11 @@ def fmtsize(val,targ,case='lower',base=10):
             n = int(n)
             s = text[-1:].lower()
         if s not in [x.lower() for x in valid_suffixes]:
-            if n < kfactor:
-                return True
+            ## I think I put this here in case I wanted to pass
+            ##  something like '100r' that it would return what I sent it
+            ## However, I'm not sure if this is a valid use-case.
+            #if n < kfactor:
+            #    return True
             return False
         return True
     if targ =='human': return _to_human(val)
