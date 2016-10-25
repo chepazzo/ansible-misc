@@ -14,6 +14,7 @@ class FilterModule(object):
 
         return {
             'collapse': collapse,
+            'collapse_dict': collapse_dict,
             'expand_ranges': expand_ranges,
         }
 
@@ -30,6 +31,38 @@ def collapse(stuff):
         list: A combined flattened list.
     '''
     return list(itertools.chain.from_iterable(stuff))
+
+def collapse_dict(stuff):
+    '''
+    collapse will take a dict of lists and return a single list
+    This is similar to using with_flattened, except that this module
+    can be used inside of a jinja2 template.
+
+    Args:
+        stuff (dict): Dict of lists that you need to collapse. Usually, this passed via pipe.
+
+    Returns:
+        list: A combined flattened list.
+
+    Example:
+      vars:
+        users:
+          apps:
+          - name: www-data
+            id: 33
+          people:
+          - name: mike
+            id: 1001
+          - name: bob
+            id: 1002
+      tasks:
+      - name: show me stuff
+        debug: {{users|collapse_dict}}
+        
+
+    returns: [{'name': 'www-data', 'id': 33}, {'name': 'mike', 'id': 1001}, {'name': 'bob', 'id': 1002}]
+    '''
+    return list(itertools.chain.from_iterable(stuff.values()))
 
 def expand_ranges(stuff,field='name'):
     '''
